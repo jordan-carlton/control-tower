@@ -23,6 +23,8 @@ const (
 	concourseNoMetricsFilename            = "no_metrics.yml"
 	extraTagsFilename                     = "extra_tags.yml"
 	uaaCertFilename                       = "uaa-cert.yml"
+	psqlCAFilename                        = "psql-ca.yml"
+	concourseCertFilename                 = "concourse-cert.yaml"
 )
 
 var (

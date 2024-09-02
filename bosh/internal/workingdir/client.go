@@ -4,8 +4,9 @@ import (
 	"github.com/EngineerBetter/control-tower/util"
 )
 
-//counterfeiter:generate . IClient
 // IClient represents client for interacting with a working directory
+//
+//counterfeiter:generate . IClient
 type IClient interface {
 	SaveFileToWorkingDir(path string, contents []byte) (string, error)
 	PathInWorkingDir(filename string) string
@@ -41,5 +42,6 @@ func (client *client) PathInWorkingDir(filename string) string {
 
 // Cleanup removes tempfiles
 func (client *client) Cleanup() error {
-	return client.tempDir.Cleanup()
+	//return client.tempDir.Cleanup()
+	return nil
 }

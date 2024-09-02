@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -246,6 +247,7 @@ func (c *CLI) RunAuthenticatedCommand(action, ip, password, ca string, detach bo
 }
 
 func (c *CLI) boshCommand(stdout io.Writer, flags ...string) error {
+	log.Println(c.boshPath, flags)
 	cmd := c.execCmd(c.boshPath, flags...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = stdout

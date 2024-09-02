@@ -7,13 +7,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/EngineerBetter/control-tower/db"
 	"github.com/apparentlymart/go-cidr/cidr"
 )
 
 func (client *AWSClient) deployConcourse(creds []byte, detach bool) ([]byte, error) {
 
-	err := saveFilesToWorkingDir(client.workingdir, client.provider, creds)
+	err := saveFilesToWorkingDir(client.workingdir, client.provider, creds, client.config.GetConcourseCert(), client.config.GetConcourseKey())
 	if err != nil {
 		return creds, fmt.Errorf("failed saving files to working directory in deployConcourse: [%v]", err)
 	}
@@ -51,14 +50,11 @@ func (client *AWSClient) deployConcourse(creds []byte, detach bool) ([]byte, err
 		"postgres_port":              boshDBPort,
 		"postgres_role":              client.config.GetRDSUsername(),
 		"postgres_password":          client.config.GetRDSPassword(),
-		"postgres_ca_cert":           db.RDSRootCert,
 		"web_vm_type":                "concourse-web-" + client.config.GetConcourseWebSize(),
 		"persistent_disk":            client.config.GetPersistentDiskSize(),
 		"worker_vm_type":             "concourse-" + client.config.GetConcourseWorkerSize(),
 		"worker_count":               client.config.GetConcourseWorkerCount(),
 		"atc_eip":                    atcPublicIP,
-		"external_tls.certificate":   client.config.GetConcourseCert(),
-		"external_tls.private_key":   client.config.GetConcourseKey(),
 		"atc_encryption_key":         client.config.GetEncryptionKey(),
 		"web_static_ip":              atcPrivateIP.String(),
 		"enable_global_resources":    client.config.GetEnableGlobalResources(),
@@ -76,6 +72,10 @@ func (client *AWSClient) deployConcourse(creds []byte, detach bool) ([]byte, err
 		client.workingdir.PathInWorkingDir(concourseSHAsFilename),
 		"--vars-file",
 		client.workingdir.PathInWorkingDir(concourseGrafanaFilename),
+		"--vars-file",
+		client.workingdir.PathInWorkingDir(psqlCAFilename),
+		"--vars-file",
+		client.workingdir.PathInWorkingDir(concourseCertFilename),
 	}
 
 	if client.config.GetConcoursePassword() != "" {

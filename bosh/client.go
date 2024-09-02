@@ -10,9 +10,11 @@ import (
 	"github.com/EngineerBetter/control-tower/bosh/internal/boshcli"
 	"github.com/EngineerBetter/control-tower/bosh/internal/workingdir"
 	"github.com/EngineerBetter/control-tower/config"
+	"github.com/EngineerBetter/control-tower/db"
 	"github.com/EngineerBetter/control-tower/iaas"
 	"github.com/EngineerBetter/control-tower/terraform"
 	"github.com/EngineerBetter/control-tower/util"
+	"gopkg.in/yaml.v2"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
@@ -23,8 +25,9 @@ const StateFilename = "director-state.json"
 // CredsFilename is default name for bosh-init creds file
 const CredsFilename = "director-creds.yml"
 
-//counterfeiter:generate . IClient
 // IClient is a client for performing bosh-init commands
+//
+//counterfeiter:generate . IClient
 type IClient interface {
 	Deploy([]byte, []byte, bool) ([]byte, []byte, error)
 	Cleanup() error
@@ -44,7 +47,7 @@ type Instance struct {
 // ClientFactory creates a new IClient
 type ClientFactory func(config config.ConfigView, outputs terraform.Outputs, stdout, stderr io.Writer, provider iaas.Provider, versionFile []byte) (IClient, error)
 
-//New returns an IAAS specific implementation of BOSH client
+// New returns an IAAS specific implementation of BOSH client
 func New(config config.ConfigView, outputs terraform.Outputs, stdout, stderr io.Writer, provider iaas.Provider, versionFile []byte) (IClient, error) {
 	workingdir, err := workingdir.New()
 	if err != nil {
@@ -118,7 +121,16 @@ func instances(boshCLI boshcli.ICLI, ip, password, ca string) ([]Instance, error
 	return instances, nil
 }
 
-func saveFilesToWorkingDir(workingdir workingdir.IClient, provider iaas.Provider, creds []byte) error {
+type external_tls_config struct {
+	external_tls external_tls `yaml:external_tls`
+}
+
+type external_tls struct {
+	certificate string `yaml:"certificate"`
+	private_key string `yaml:"private_key"`
+}
+
+func saveFilesToWorkingDir(workingdir workingdir.IClient, provider iaas.Provider, creds []byte, external_tls_certificate string, external_tls_private_key string) error {
 	concourseVersionsContents, _ := provider.Choose(iaas.Choice{
 		AWS: awsConcourseVersions,
 		GCP: gcpConcourseVersions,
@@ -127,6 +139,18 @@ func saveFilesToWorkingDir(workingdir workingdir.IClient, provider iaas.Provider
 		AWS: awsConcourseSHAs,
 		GCP: gcpConcourseSHAs,
 	}).([]byte)
+
+	// write to yaml file external_tls.certificate, keys are external_tls.certificate external_tls.private_key
+	external_tls_config := external_tls_config{
+		external_tls: external_tls{
+			certificate: external_tls_certificate,
+			private_key: external_tls_private_key,
+		},
+	}
+	external_tls_config_yaml, err := yaml.Marshal(external_tls_config)
+	if err != nil {
+		return err
+	}
 
 	filesToSave := map[string][]byte{
 		concourseVersionsFilename:             concourseVersionsContents,
@@ -142,6 +166,8 @@ func saveFilesToWorkingDir(workingdir workingdir.IClient, provider iaas.Provider
 		concourseNoMetricsFilename:            concourseNoMetrics,
 		credsFilename:                         creds,
 		extraTagsFilename:                     extraTags,
+		psqlCAFilename:                        []byte(db.RDSRootCert),
+		concourseCertFilename:                 external_tls_config_yaml,
 	}
 
 	for filename, contents := range filesToSave {

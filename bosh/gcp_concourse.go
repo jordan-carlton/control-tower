@@ -12,7 +12,7 @@ import (
 
 func (client *GCPClient) deployConcourse(creds []byte, detach bool) ([]byte, error) {
 
-	err := saveFilesToWorkingDir(client.workingdir, client.provider, creds)
+	err := saveFilesToWorkingDir(client.workingdir, client.provider, creds, client.config.GetConcourseCert(), client.config.GetConcourseKey())
 	if err != nil {
 		return nil, fmt.Errorf("failed saving files to working directory in deployConcourse: [%v]", err)
 	}
@@ -67,8 +67,6 @@ func (client *GCPClient) deployConcourse(creds []byte, detach bool) ([]byte, err
 		"worker_vm_type":             "concourse-" + client.config.GetConcourseWorkerSize(),
 		"worker_count":               client.config.GetConcourseWorkerCount(),
 		"atc_eip":                    atcPublicIP,
-		"external_tls.certificate":   client.config.GetConcourseCert(),
-		"external_tls.private_key":   client.config.GetConcourseKey(),
 		"atc_encryption_key":         client.config.GetEncryptionKey(),
 		"network_name":               networkName,
 		"web_static_ip":              atcPrivateIP.String(),
@@ -89,6 +87,8 @@ func (client *GCPClient) deployConcourse(creds []byte, detach bool) ([]byte, err
 		uaaCertPath,
 		"--vars-file",
 		client.workingdir.PathInWorkingDir(concourseGrafanaFilename),
+		"--vars-file",
+		client.workingdir.PathInWorkingDir(concourseCertFilename),
 	}
 
 	if client.config.GetConcoursePassword() != "" {
